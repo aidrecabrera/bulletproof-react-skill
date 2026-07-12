@@ -25,38 +25,38 @@ Use these terms exactly. Don't substitute "module," "service," or "component" wh
 
 ## Before you apply this
 
-This structure earns its cost on an app with real, growing feature surface area, several people touching the codebase, or a plan to still be maintained in a year. It does not earn its cost on a five-file prototype, a one-off script, or a component being built to answer a design question and then thrown away.
+This structure earns its cost on an app with growing feature surface area, several people touching the codebase, or a plan to still be maintained in a year. It does not earn its cost on a five-file prototype, a one-off script, or a throwaway component.
 
 Check scale before reaching for structure:
 
-- **One feature, a handful of files?** Skip `src/features/` entirely. A flat `src/` with a few files in it is not a violation of this skill, it's the correct application of it. Creating the full feature-folder skeleton (`api/`, `components/`, `hooks/`, `stores/`, `types/`) for a feature that has one component and one fetch call is the failure mode this skill exists to prevent, not the goal.
-- **Already have a working pattern in this codebase?** Match it instead of introducing bulletproof-react's pattern alongside it. Two competing conventions in one repo cost more than either convention's imperfections.
-- **Unsure whether a rule applies at this size?** Ask what breaks without it. If nothing breaks, skip it and say so in one line rather than applying it preemptively.
+- **One feature, a handful of files?** Skip `src/features/` entirely. A flat `src/` is not a violation here, it's the correct call. Building the full feature-folder skeleton for one component and one fetch call is the failure mode this skill exists to prevent, not the goal.
+- **Already have a working pattern in this codebase?** Match it instead of introducing bulletproof-react's pattern alongside it. Two competing conventions cost more than either convention's imperfections.
+- **Unsure whether a rule applies at this size?** Ask what breaks without it. If nothing breaks, skip it and say so in one line.
 
-None of the reference files below are a checklist to run top to bottom on every task. Each one solves a specific problem. Read the one that matches the problem in front of you; skip the rest.
+The reference files below are not a checklist to run top to bottom. Each solves one problem. Read the one that matches the problem in front of you, skip the rest.
 
 ## When this skill doesn't apply
 
-Skip this skill entirely for a task that isn't structural: fixing a bug in existing code, writing a single function, styling a component, or anything where the question isn't "where does this go" or "how should this be organized." Reaching for feature-folder conventions on a request to fix a typo is the same mistake as reaching for a design pattern to solve a one-line problem.
+Skip it entirely for non-structural work: fixing a bug, writing a single function, styling a component, anything where the question isn't "where does this go" or "how should this be organized."
 
-This skill is also weaker on unfamiliar or unusually small models. It assumes the model reading it will apply judgment about scale rather than mechanically creating every folder listed in project-structure.md because the folder is listed. If you notice a pattern from this skill being applied somewhere it clearly doesn't fit, that's a signal to stop and ask, not a signal to keep going because the skill said so.
+This skill also assumes the model applies judgment about scale rather than mechanically building every folder because the folder is listed. If a pattern from this skill is being applied somewhere it clearly doesn't fit, stop and ask rather than continuing because the skill said so.
 
 ## These resources may help
 
-Each reference file below is short enough to load in full. Read the one relevant to the current task, not all of them.
+Each file is short enough to load in full. Read the one relevant to the current task.
 
-- **[reference/project-structure.md](reference/project-structure.md)**: folder layout for the app and for a feature, the ESLint rules that enforce the import direction above. Start here for any new feature, or any question about where a file belongs. This is the most-read file in the skill because "where does this go" is the most common question it answers.
+- **[reference/project-structure.md](reference/project-structure.md)**: app and feature folder layout, the ESLint rules enforcing the import direction above. Start here for a new feature or any "where does this go" question. Most-read file in the skill.
 
-- **[reference/api-layer.md](reference/api-layer.md)**: how to structure a request declaration: types, fetcher, hook. Read this when writing or reviewing any data-fetching code, not just when setting up a new feature.
+- **[reference/api-layer.md](reference/api-layer.md)**: request declaration structure: types, fetcher, hook. Read when writing or reviewing data-fetching code.
 
-- **[reference/state-management.md](reference/state-management.md)**: the five state categories from the rule of thumb above, with the library recommendation for each. Read this before adding a `useState`, a context, or a store, since the category determines the right tool, and picking the tool first usually means picking it wrong.
+- **[reference/state-management.md](reference/state-management.md)**: the five state categories, with a library recommendation for each. Read before adding a `useState`, context, or store. Picking the tool before the category usually means picking wrong.
 
-- **[reference/testing.md](reference/testing.md)**: test types and where to weight effort, plus the specific tooling (Vitest, Testing Library, Playwright, MSW). Read this when setting up a test suite or deciding what kind of test a change actually needs.
+- **[reference/testing.md](reference/testing.md)**: test types, where to weight effort, tooling (Vitest, Testing Library, Playwright, MSW).
 
-- **[reference/error-handling.md](reference/error-handling.md)**: API error interception, error boundary placement, production error tracking. Short file, read it in full rather than skimming.
+- **[reference/error-handling.md](reference/error-handling.md)**: API error interception, error boundary placement, production error tracking. Short, read in full.
 
-- **[reference/security.md](reference/security.md)**: authentication token storage, authorization models (RBAC and PBAC). Read this in full, not selectively. This is the one file in the skill where skipping a section is more likely to introduce a real vulnerability than to save time, since the storage and sanitization guidance depend on each other.
+- **[reference/security.md](reference/security.md)**: token storage, authorization models (RBAC, PBAC). Read in full, not selectively. Storage and sanitization guidance depend on each other; skipping a section here risks a real vulnerability, not just wasted time.
 
-- **[reference/performance.md](reference/performance.md)**: code splitting, re-render causes, the `children` pattern, image and prefetching optimizations. Read this when something is measurably slow, not preemptively. Most of what's in this file is a fix for a specific symptom, not a checklist to apply blind.
+- **[reference/performance.md](reference/performance.md)**: code splitting, re-render causes, the `children` pattern, image and prefetch optimizations. Read when something is measurably slow, not preemptively.
 
-- **[reference/overengineering-check.md](reference/overengineering-check.md)**: a narrow review pass that only looks for this skill's own conventions applied somewhere they don't earn their cost, empty feature subfolders, stores for state that never leaves one component, ESLint rules copied onto a two-feature app. Read this when reviewing a codebase for unnecessary structure, or as a self-check right after you've generated a feature scaffold. It doesn't check correctness or security, only whether the structure itself is pulling its weight.
+- **[reference/overengineering-check.md](reference/overengineering-check.md)**: a narrow review pass for this skill's own conventions applied where they don't earn their cost, empty feature subfolders, stores for state that never leaves one component, ESLint rules on a two-feature app. Read when reviewing a codebase for unnecessary structure, or as a self-check after generating a feature scaffold. Doesn't check correctness or security.
