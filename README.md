@@ -17,10 +17,9 @@ This skill is designed to avoid that.
 It checks scale, pushes back when you do not need the full skeleton,
 and flags when you have overdone it.
 
+Agents should amplify your development workflow and support your judgment, not replace either. ([Remember, skill atrophy is real.](https://addyo.substack.com/p/avoiding-skill-atrophy-in-the-age))
 
-Use agents to augment your judgment, not replace it.
-A skill like this is a multiplier for someone who already knows what good
-React architecture looks like.
+A skill like this is a multiplier for someone who already knows what good React architecture looks like. It augments your development workflow and aids your judgment.
 
 It will not make that call for you.
 It will remind you of the right questions to ask.
