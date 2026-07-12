@@ -30,6 +30,7 @@ FILE_ORDER = [
     "security.md",
     "performance.md",
     "overengineering-check.md",
+    "quality-check.md",
 ]
 
 MAX_SKILL_MD_LINES = 500

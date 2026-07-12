@@ -1,11 +1,11 @@
 ---
 name: bulletproof-react-architecture
-description: Apply bulletproof-react conventions when writing, organizing, or reviewing React or TypeScript application code. Covers feature-based folder structure, API layer patterns, state management categories, testing strategy, error handling, authentication and authorization, and performance optimization. Use whenever the user creates a new React feature, sets up a project structure, decides where a piece of code or state should live, writes data-fetching or auth code, or asks for a review of React code against a scalable architecture.
+description: Apply bulletproof-react conventions when writing, organizing, or reviewing React or TypeScript apps. Covers feature-based folder structure, API layers, state management categories, testing strategy, error handling, auth, and performance. Use whenever the user creates a new React feature, sets up project structure, asks "where does this go" or "how should I organize this", decides where state lives, writes data-fetching or auth code, or asks for a React architecture review. Triggers on "feature folder", "React project structure", "should I use Redux", "how to structure API calls".
 ---
 
 # Bulletproof React architecture
 
-Source: [bulletproof-react](https://github.com/alan2207/bulletproof-react) by Alan Alickovic, MIT licensed. 35k+ stars, actively maintained. This skill is a working reference distilled from that repo, not a copy of it. See [NOTICE.md](NOTICE.md) for the license and adaptation note.
+Source: [bulletproof-react](https://github.com/alan2207/bulletproof-react) by Alan Alickovic, MIT licensed. The upstream repo is now a monorepo with three app variants: `apps/react-vite/`, `apps/nextjs-app/`, `apps/nextjs-pages/`. This skill follows the `react-vite` version as primary. See [NOTICE.md](NOTICE.md) for the license and adaptation note.
 
 ## Vocabulary
 
@@ -17,29 +17,42 @@ Use these terms exactly. Don't substitute "module," "service," or "component" wh
 
 ## Rules of thumb
 
-**No cross-feature imports.** `features/comments` importing from `features/discussions` is always a bug, not a shortcut. If two features need the same logic, promote it to shared code.
+A scannable summary. Each one is expanded in the reference files linked below.
 
-**Code flows one direction: shared → features → app.** Never the reverse. If you find yourself importing from `app/` into a feature, or from one feature into another, that's the rule breaking, not an exception to it.
-
-**Match the state to its category before reaching for a store.** Component, application, server cache, form, and URL state are five different problems with five different right answers. Mixing them into one `useState` object is the most common cause of unrelated re-renders.
+| Rule | What it means |
+|------|--------------|
+| No cross-feature imports | `features/comments` importing from `features/discussions` is always a bug. Promote to shared code. |
+| Code flows one direction | shared → features → app. Never the reverse. Nothing in shared imports from a feature or app. |
+| Match state to category first | Component, app, server cache, form, and URL state are five different problems with five different tools. |
 
 ## Before you apply this
 
-This structure earns its cost on an app with growing feature surface area, several people touching the codebase, or a plan to still be maintained in a year. It does not earn its cost on a five-file prototype, a one-off script, or a throwaway component.
+This pays off when the app has multiple features, multiple contributors, or a timeline longer than a few months. It does not pay off on a five-file prototype, a one-off script, or a throwaway component.
 
 Check scale before reaching for structure:
 
-- **One feature, a handful of files?** Skip `src/features/` entirely. A flat `src/` is not a violation here, it's the correct call. Building the full feature-folder skeleton for one component and one fetch call is the failure mode this skill exists to prevent, not the goal.
-- **Already have a working pattern in this codebase?** Match it instead of introducing bulletproof-react's pattern alongside it. Two competing conventions cost more than either convention's imperfections.
-- **Unsure whether a rule applies at this size?** Ask what breaks without it. If nothing breaks, skip it and say so in one line.
+- **One feature, a handful of files?** Keep `src/` flat. The full feature-folder skeleton for one component and one fetch call is the failure mode this skill exists to prevent, not the goal.
+- **Already have a working pattern in this codebase?** Match it. Two competing conventions cost more than either one's imperfections.
+- **Unsure whether a rule applies?** Ask what breaks without it. If nothing breaks, skip it.
 
-The reference files below are not a checklist to run top to bottom. Each solves one problem. Read the one that matches the problem in front of you, skip the rest.
+The reference files below aren't a checklist. Each solves one problem. Read the one that matches the problem in front of you.
 
 ## When this skill doesn't apply
 
-Skip it entirely for non-structural work: fixing a bug, writing a single function, styling a component, anything where the question isn't "where does this go" or "how should this be organized."
+Skip it for non-structural work: fixing a bug, writing a single function, styling a component. If the question isn't "where does this go" or "how should this be organized," you don't need it.
 
-This skill also assumes the model applies judgment about scale rather than mechanically building every folder because the folder is listed. If a pattern from this skill is being applied somewhere it clearly doesn't fit, stop and ask rather than continuing because the skill said so.
+This skill assumes you apply judgment about scale. If you catch yourself building every subfolder from the project-structure file just because it's listed, stop and ask whether this feature actually needs all of them.
+
+## Gotchas
+
+The mistakes the agent makes most often:
+
+1. **Using `react-router-dom`.** The upstream repo moved to `react-router` v7 (library mode). Import from `react-router`, not `react-router-dom`.
+2. **Creating a store for state that never leaves one component.** That's component state, not application state. Start with `useState`. Promote to a store only when another component actually needs the same value.
+3. **Building the full feature skeleton for a small feature.** A feature with one component and one fetch call doesn't need `api/`, `components/`, `hooks/`, `stores/`, `types/`. Just `api/` and `components/` is fine. You can add folders later when they earn their keep.
+4. **Putting server cache state in Zustand, Redux, or any general-purpose store.** Server data belongs in TanStack Query's cache, not in a hand-rolled store. The caching, invalidation, and refetching logic a query client gives you for free is the whole reason it exists.
+5. **Barrel files (index.ts that re-exports everything).** They break tree shaking in Vite. Import directly from the file you need.
+6. **Cross-feature imports.** Worth repeating: `features/comments` reaching into `features/discussions` is never the right call. If two features share logic, promote it to shared code.
 
 ## These resources may help
 
@@ -59,4 +72,6 @@ Each file is short enough to load in full. Read the one relevant to the current 
 
 - **[reference/performance.md](reference/performance.md)**: code splitting, re-render causes, the `children` pattern, image and prefetch optimizations. Read when something is measurably slow, not preemptively.
 
-- **[reference/overengineering-check.md](reference/overengineering-check.md)**: a narrow review pass for this skill's own conventions applied where they don't earn their cost, empty feature subfolders, stores for state that never leaves one component, ESLint rules on a two-feature app. Read when reviewing a codebase for unnecessary structure, or as a self-check after generating a feature scaffold. Doesn't check correctness or security.
+- **[reference/overengineering-check.md](reference/overengineering-check.md)**: a narrow review pass for this skill's own conventions applied where they don't earn their cost. Read when reviewing a codebase for unnecessary structure, or as a self-check after generating a feature scaffold.
+
+- **[reference/quality-check.md](reference/quality-check.md)**: companion tools (react-doctor, Vercel performance rules, composition patterns) that enforce or extend these conventions.

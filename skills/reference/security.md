@@ -1,29 +1,61 @@
-<!-- source: bulletproof-react docs/security.md -->
-
 # Security: authentication and authorization
 
-Client-side auth improves the user experience, but it is not a substitute for server-side enforcement. Every resource still needs to be protected on the server regardless of what the client does. Treat everything below as complementary to that, not a replacement for it.
+Client-side auth improves the user experience but doesn't replace server-side enforcement. Every resource still needs to be protected on the server. What follows is how to wire up the client side; it's complementary, not a replacement.
 
 ## Authentication
 
-Verifies who the user is. The standard pattern for single-page apps is JWT: the user logs in, receives a token, and the token is sent with every subsequent authenticated request.
+Standard pattern for SPAs is JWT: the user logs in, receives a token, and the token is sent with every authenticated request.
 
-**Where to store the token matters and the tradeoffs are not optional to consider:**
+**Where to store the token matters:**
 
-- Storing the token only in application state is the most secure option against theft, but it resets on page refresh, so on its own it's not practical.
-- `localStorage` and `sessionStorage` are readable by any JavaScript running on the page. If the app has an XSS vulnerability, the token can be stolen directly. Don't store tokens here unless you've deliberately decided the tradeoff is acceptable for the app in question.
-- Cookies with the `HttpOnly` flag are the safer default. `HttpOnly` cookies aren't accessible to client-side JavaScript at all, which closes off the XSS token-theft path.
+- **Application state only.** Most secure against theft, but resets on page refresh. Not practical on its own.
+- **`localStorage` / `sessionStorage`.** Readable by any JavaScript on the page. If the app has an XSS vulnerability, the token can be stolen directly.
+- **HttpOnly cookies.** Safer default. Not accessible to client-side JavaScript, which closes the XSS token-theft path.
 
-Regardless of storage choice, sanitize all user input before rendering it. This is the other half of XSS defense, storage security alone doesn't help if unsanitized input gets rendered back into the page. See the OWASP client-side security top 10 for the fuller threat list.
+Sanitize all user input before rendering it. That's the other half of XSS defense. Storage security alone doesn't help if unsanitized input gets rendered back into the page.
 
-Treat the authenticated user object as global state, available anywhere in the app. If already using react-query, the react-query-auth library handles this pattern directly. Otherwise, react context + hooks or another state library works. The convention: the app considers a user authenticated if and only if a user object is present.
+The upstream repo uses **react-query-auth** to wire up auth. In `lib/auth.tsx`, call `configureAuth` with your API functions, then export typed hooks (see [api-layer.md](api-layer.md) for the pattern). The app considers a user authenticated if and only if a user object is present.
 
 ## Authorization
 
-Verifies what an authenticated user is allowed to do. Two models, and they're not mutually exclusive:
+Two models. You can use both in the same app.
 
-**Role-based (RBAC):** Define roles (`USER`, `ADMIN`, and so on) and grant each role a set of permissions. Simple to reason about, and it's the right default for most access decisions in an app.
+**Role-based (RBAC):** Define roles (`USER`, `ADMIN`) and grant each role a set of permissions. Simple. Right default for most access decisions.
 
-**Permission-based (PBAC):** Finer-grained than roles. Use it when access depends on something more specific than role membership, most commonly ownership: only the author of a comment can delete that comment, regardless of what role they hold. RBAC alone can't express that; PBAC checks a policy specific to the resource instance.
+**Permission-based (PBAC):** Finer-grained. Use it when access depends on something more specific than role membership, most commonly ownership: only the author of a comment can delete it. RBAC alone can't express that.
 
-In practice, gate UI and actions with a component that accepts either allowed roles (RBAC) or a policy check function (PBAC), and use whichever fits the specific permission being enforced.
+### The Authorization component pattern
+
+The upstream repo has `lib/authorization.tsx` with a reusable component. It takes either `allowedRoles` (RBAC) or a `policyCheck` function (PBAC) and renders children only when access is granted.
+
+```tsx
+// RBAC. Only admins can see this
+<Authorization allowedRoles={['ADMIN']}>
+  <DeleteUserButton />
+</Authorization>
+
+// PBAC. Only the comment author can delete
+// Evaluate the policy and pass the boolean result
+<Authorization policyCheck={POLICIES['comment:delete'](user, comment)}>
+  <DeleteCommentButton />
+</Authorization>
+```
+
+Define roles and policies in one place:
+
+```ts
+export enum ROLES {
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+
+const POLICIES = {
+  'comment:delete': (user: User, comment: Comment) => {
+    if (user.role === ROLES.ADMIN) return true;
+    if (user.role === ROLES.USER && comment.author?.id === user.id) return true;
+    return false;
+  },
+} as const;
+```
+
+The `useAuthorization` hook returns `checkAccess` and `role` so you can use them in logic too, not just in JSX.

@@ -20,13 +20,13 @@ Split at the route level so the initial load only fetches what's needed for the 
   const [state, setState] = useState(() => myExpensiveFn());
   ```
 
-- For state that tracks many independent elements at once, consider a store with atomic updates (Jotai) instead of one big object.
+- For state that tracks many independent elements at once, consider a store with atomic updates (Zustand, Jotai) instead of one big object.
 - React Context is fine for low-frequency data: theme, user info, small local state. For data that updates often, plain context will re-render every consumer on every change. Either use a library with built-in selectors (Zustand, Jotai) or `use-context-selector` if staying with context. And before reaching for context at all, check whether lifting state up or better component composition solves the problem without it. Context is not the default answer to prop drilling.
 - If the app updates frequently and runtime styling libraries (emotion, styled-components) show up as a bottleneck, consider a zero-runtime alternative (Tailwind, vanilla-extract, CSS modules) that generates styles at build time instead.
 
 ## Use `children` to avoid re-renders
 
-Passing JSX through the `children` prop is the cheapest optimization available. Content passed as `children` is a VDOM structure the parent doesn't own and can't re-render, so it's untouched by state changes in the parent.
+Passing JSX through `children` is the cheapest optimization. Content passed as `children` is a VDOM structure the parent doesn't own and can't re-render. State changes in the parent leave it untouched.
 
 ```javascript
 // PureComponent re-renders every time count changes

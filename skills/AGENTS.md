@@ -8,6 +8,17 @@ Conventions adapted from [bulletproof-react](https://github.com/alan2207/bulletp
 
 # Project structure
 
+The upstream repo is a monorepo with three app variants: `apps/react-vite/`, `apps/nextjs-app/`, `apps/nextjs-pages/`. Everything below follows the `react-vite` version.
+
+## Contents
+
+- [Top-level layout](#top-level-layout)
+- [Config patterns](#config-patterns)
+- [Feature folder layout](#feature-folder-layout)
+- [Import rules](#import-rules)
+- [Additional ESLint rules](#additional-eslint-rules)
+- [Avoid barrel files](#avoid-barrel-files)
+
 ## Top-level layout
 
 Most code lives under `src/`:
@@ -21,15 +32,38 @@ src/
 ├── features/       # feature-based modules, most code lives here
 ├── hooks/          # shared hooks
 ├── lib/            # reusable libraries, preconfigured for the app
-├── stores/         # global state stores
 ├── testing/        # test utilities and mocks
 ├── types/          # shared types
 └── utils/          # shared utility functions
 ```
 
+(The original docs also list `stores/` for global state, but the current codebase keeps stores colocated in features or uses Zustand ad-hoc without a top-level stores directory.)
+
+### Config patterns
+
+The `config/` folder has two files worth noting:
+
+**`env.ts`** uses Zod to validate environment variables at runtime. It reads from `import.meta.env`, strips the `VITE_APP_` prefix, validates against a schema, and throws a detailed error if validation fails. This catches misconfigured deployments before they cause silent failures.
+
+```ts
+const envSchema = z.object({
+  API_URL: z.string().url(),
+  APP_URL: z.string().url().optional(),
+  ENABLE_API_MOCKING: z.boolean().default(false),
+});
+```
+
+**`paths.ts`** defines route paths centrally with a `path` and `getHref()` for each route. This keeps navigation type-safe and avoids hardcoded path strings scattered across components.
+
+```
+src/config/
+├── env.ts
+└── paths.ts
+```
+
 ## Feature folder layout
 
-Each feature gets its own folder under `src/features/`:
+Each feature under `src/features/` gets its own folder. Only create the subdirectories a feature actually needs.
 
 ```
 src/features/awesome-feature/
@@ -42,17 +76,17 @@ src/features/awesome-feature/
 └── utils/          # utility functions for this feature
 ```
 
-Only create the subfolders a feature actually needs. A small feature might just have `api/` and `components/`.
+A small feature might just have `api/` and `components/`. Add folders when they earn their keep.
 
-If a lot of API calls are shared across features, it's fine to keep a dedicated top-level `api/` folder outside of `features/` instead of duplicating fetchers per feature.
+If a lot of API calls are shared across features, keep a dedicated top-level `api/` folder instead of duplicating fetchers per feature.
 
 ## Import rules
 
-**No cross-feature imports.** `features/discussions` should never import from `features/comments`. If two features need the same logic, pull it into a shared module (`components/`, `hooks/`, `lib/`, `utils/`) or compose the features together at the app layer, not by reaching into each other.
+**No cross-feature imports.** `features/discussions` should never import from `features/comments`. Pull shared logic into `components/`, `hooks/`, `lib/`, or `utils/`. Compose features at the app layer, not by reaching into each other.
 
-**Imports flow one direction: shared → features → app.** Shared code can be used anywhere. Features can use shared code but not other features. The app layer can use features and shared code. Nothing shared should ever import from a feature or from `app/`.
+**Imports flow one direction: shared → features → app.** Shared code can be used anywhere. Features can use shared code but not other features. The app layer can use features and shared code. Nothing shared imports from a feature or from `app/`.
 
-Enforce both rules with ESLint's `import/no-restricted-paths`:
+Enforce with ESLint's `import/no-restricted-paths`:
 
 ```js
 'import/no-restricted-paths': [
@@ -72,12 +106,12 @@ Enforce both rules with ESLint's `import/no-restricted-paths`:
       },
       // repeat per feature
 
-      // unidirectional flow: app can import from features, not the reverse
+      // unidirectional flow: app can import from features
       {
         target: './src/features',
         from: './src/app',
       },
-      // features and app can import shared modules, not the reverse
+      // features and app can import shared modules
       {
         target: [
           './src/components',
@@ -93,82 +127,212 @@ Enforce both rules with ESLint's `import/no-restricted-paths`:
 ],
 ```
 
+## Additional ESLint rules
+
+The repo also uses these. Not all are mandatory on day one, but add them as the codebase grows:
+
+- **`import/no-cycle`.** Prevents circular dependencies. Worth adding early, circular deps are hard to untangle later.
+- **`import/order`.** Enforces consistent import grouping and alphabetical ordering. Optional but reduces noise in diffs.
+- **`check-file/filename-naming-convention`** and **`check-file/folder-naming-convention`.** Enforces `KEBAB_CASE` for all files and folders. Use from the start if you care about naming consistency; skip it if you're prototyping.
+
 ## Avoid barrel files
 
-Skip barrel files (an `index.ts` that re-exports everything from a feature). They break tree shaking in bundlers like Vite and can cause real performance regressions. Import directly from the specific file instead.
+Don't use barrel files (an `index.ts` that re-exports everything from a feature). They break tree shaking in Vite. Import directly from the specific file.
 
-This structure applies equally well to Next.js, Remix, and React Native apps. Only the `app/` folder's internals tend to differ based on the meta-framework in use.
+This structure applies to Next.js, Remix, and React Native. Only the `app/` folder's internals differ based on the meta-framework.
 
 # API layer
 
 ## One API client instance
 
-Create a single, preconfigured API client and reuse it everywhere, rather than constructing a new client per call. Use `fetch` directly or a library like axios, graphql-request, or apollo-client, configured once in `lib/api-client.ts` or similar.
+Create a single preconfigured API client and reuse it everywhere. The upstream repo uses an Axios instance in `lib/api-client.ts` with an `authRequestInterceptor` that sets the Accept header, enables credentials, and extracts `response.data`. On errors, it shows a toast and redirects to login on 401.
+
+Don't construct a new client per call. One instance, configured once.
 
 ## Declare requests separately, don't inline them
 
-Define and export each API request as its own module instead of writing fetch calls inline wherever they're needed. This keeps every available endpoint discoverable in one place and makes typing the response, and inferring types downstream, straightforward.
+Each endpoint gets its own file in the feature's `api/` folder. This makes every endpoint discoverable and keeps typing straightforward.
 
-Each request declaration should have three parts:
+Each file has three parts:
 
 1. **Types and validation schemas** for the request and response
 2. **A fetcher function** that calls the endpoint using the shared API client
-3. **A hook** that wraps the fetcher with a data-fetching library (react-query, swr, apollo-client, urql) to handle caching, loading state, and refetching
+3. **A hook or `queryOptions`** that wraps the fetcher for caching, loading state, and refetching
 
-Put these in the feature's `api/` folder, one file per endpoint or logical group: `get-discussions.ts`, `create-discussion.ts`, and so on.
+```
+features/discussions/api/
+├── get-discussions.ts
+└── create-discussion.ts
+```
+
+## Use `queryOptions` for TanStack Query v5
+
+Instead of writing raw `useQuery` calls inline, export a `queryOptions` object. This lets you reuse the same query configuration across `useQuery`, `prefetchQuery`, and `queryClient.invalidateQueries` with full type inference.
+
+```ts
+export const getDiscussionsQueryOptions = ({ page }) => {
+  return queryOptions({
+    queryKey: page ? ['discussions', { page }] : ['discussions'],
+    queryFn: () => getDiscussions(page),
+  });
+};
+```
+
+Then consume it:
+
+```ts
+const { data } = useQuery(getDiscussionsQueryOptions({ page }));
+```
+
+Or prefetch before the user navigates:
+
+```ts
+queryClient.prefetchQuery(getDiscussionsQueryOptions({ page: 1 }));
+```
+
+## Auth pattern with react-query-auth
+
+The upstream repo uses `react-query-auth` to wire up authentication. In `lib/auth.tsx`, call `configureAuth` once with your `getUser`, `login`, `register`, and `logout` functions. Export the hooks you need:
+
+```ts
+const { useUser, useLogin, useLogout, useRegister, AuthLoader, ProtectedRoute } =
+  configureAuth({
+    userFn: getProfile,
+    loginFn: loginWithEmailAndPassword,
+    registerFn: registerWithEmailAndPassword,
+    logoutFn: logout,
+  });
+```
+
+This gives you typed hooks for all auth operations. `AuthLoader` renders a spinner while the user object loads. `ProtectedRoute` redirects unauthenticated users to the login page.
+
+The same pattern works for any backend. The login and register functions are just async calls that return a user object and set the token.
 
 # State management
 
-Before reaching for a global store, figure out which of these five categories the state actually belongs to. Most bugs and unnecessary re-renders come from putting state one level higher than it needs to be.
+Before reaching for a global store, figure out which of these five categories the state belongs to. Most bugs and unnecessary re-renders come from putting state one level higher than it needs to be.
 
 ## Component state
 
-State used by one component and its children. Start here by default; only lift state higher if something outside the component tree actually needs it.
+State used by one component and its children. Start here. Only lift state higher if something outside the component tree needs it.
 
-- `useState` for independent, simple values
-- `useReducer` when a single action needs to update several related pieces of state at once
+- `useState` for simple values
+- `useReducer` when one action updates several related pieces of state at once
 
 ## Application state
 
-Global, cross-cutting state: modal visibility, notifications, color mode. Keep this category as small as possible. Don't globalize state just because it's convenient; localize it to the components that need it whenever you can.
+Global, cross-cutting state: modal visibility, notifications, color mode. Keep this category small. Don't globalize state just because it's convenient.
 
-Reasonable options: React context + hooks, Redux + Redux Toolkit, MobX, Zustand, Jotai, XState.
+The upstream repo uses **Zustand**. It's a good default: simple API, no boilerplate, no provider wrapping, built-in selectors to avoid unnecessary re-renders. Alternatives exist (Redux Toolkit, Jotai, MobX, context + hooks) but Zustand covers most needs with less code.
+
+Usage in the repo: `useNotifications.getState()` in the API client interceptor to surface error toasts. No store directory at the top level. Stores are colocated in features or used ad-hoc via Zustand.
 
 ## Server cache state
 
-Data that originated on the server and is cached client-side. Don't put this in a general-purpose store like Redux. Use a library built for it: react-query, swr, apollo-client, urql, or RTK Query. These handle caching, invalidation, and refetching in ways a plain store doesn't.
+Data that originated on the server and is cached client-side. Don't put this in a general-purpose store like Zustand or Redux. Use TanStack Query, SWR, Apollo, or RTK Query. These handle caching, invalidation, and refetching in ways a plain store doesn't.
+
+The upstream repo uses **TanStack Query v5** with the `queryOptions` pattern (see [api-layer.md](api-layer.md)). Stale time is set to 60 seconds by default, no refetch on window focus, no retry.
 
 ## Form state
 
-Use a form library rather than hand-rolling validation and field state: React Hook Form, Formik, or React Final Form. Wrap the library in a small `Form` component plus reusable field components so the rest of the app doesn't touch the library's API directly.
-
-Pair the form library with a schema validator for client-side validation: zod or yup.
+Use a form library: React Hook Form, Formik, or React Final Form. The upstream repo uses **React Hook Form** with **Zod** for validation. Wrap the library in a small `Form` component plus reusable field components so the rest of the app doesn't touch the library's API directly.
 
 ## URL state
 
-Data that lives in the URL itself, route params or query params. Use the router (react-router-dom or equivalent) to read and update it rather than mirroring it into component or application state. The URL is the source of truth here, don't duplicate it elsewhere.
+Data in the URL: route params, query params. Use the router to read and update it. Don't mirror it into component or application state. The URL is the source of truth.
+
+The upstream repo uses **react-router v7** (not `react-router-dom`). Route paths are defined centrally in `config/paths.ts` with type-safe `path` and `getHref()` helpers.
 
 # Testing
 
-Weight testing effort toward integration tests. Unit tests catch isolated bugs, but a suite of passing unit tests doesn't guarantee the pieces work together, and that's usually where real breakage happens.
+Weight testing effort toward integration tests. Unit tests catch isolated bugs, but they don't tell you the pieces work together. That's where real breakage happens.
 
 ## Test types
 
-Unit tests cover the smallest scope: one function or component in isolation. They're good for shared components and utilities used throughout the app, and for pinning down complex logic inside a single component. They're fast and cheap, so write them freely.
+**Unit tests.** One function or component in isolation. Good for shared components, utilities, and complex logic inside a single component. Fast and cheap, write them freely.
 
-Integration tests check how multiple parts work together, and this is where most testing effort should go. A suite of passing unit tests can still hide a broken integration: the connections between components, hooks, and API calls are exactly what unit tests can't see.
+**Integration tests.** How multiple parts work together. This is where most testing effort should go. Unit tests can't see broken connections between components, hooks, and API calls.
 
-End-to-end tests exercise the full app, frontend and backend together, driven the way a real user would drive it. Write fewer of these since they're expensive to write and run, but treat them as the strongest signal that the app actually works.
+**End-to-end tests.** Full app, frontend and backend, driven like a real user. Expensive to write and run. Write fewer of these, but treat them as the strongest signal.
 
 ## Tooling
 
-Vitest is the test runner. It has a Jest-compatible API but is faster and integrates better with modern build tools.
+**Vitest.** Test runner. Jest-compatible API, faster, better build tool integration.
 
-Testing Library tests what the user sees and does, not internal state. If you swap out a state management library, tests written against rendered output shouldn't need to change, because the output itself didn't change.
+**Testing Library.** Tests what the user sees and does, not internal state. Swap out a state management library, and tests against rendered output shouldn't change.
 
-Playwright handles end-to-end tests. Run it in browser mode locally when debugging, since you get a visual step-through, or headless in CI.
+**Playwright.** E2E tests. Run in browser mode locally for visual debugging, headless in CI.
 
-MSW (Mock Service Worker) intercepts real HTTP calls and returns mocked responses from handlers you define. It's useful for developing against an API that isn't finished yet, and for tests: you make real HTTP calls, MSW answers them, and you're not manually mocking `fetch`.
+**MSW.** Intercepts real HTTP calls and returns mocked responses. Useful when the API isn't finished. In tests, you make real HTTP calls, MSW answers them, and you avoid mocking `fetch`.
+
+## Upstream repo patterns
+
+### renderApp helper
+
+The test utility exports `renderApp` which creates a memory router, wraps in the app provider, and optionally authenticates a user.
+
+```ts
+import { renderApp, createUser } from '@/testing/test-utils';
+
+it('displays the discussion list', async () => {
+  const user = await createUser();
+  const { findByText } = renderApp(<DiscussionsPage />, { user });
+  expect(await findByText('My Discussion')).toBeInTheDocument();
+});
+```
+
+This sets up everything: router, providers, auth, data loading. You don't rewire these per test.
+
+### In-memory database with MSW data
+
+`@mswjs/data` creates an in-memory database with typed models. Combined with MSW, API calls during tests hit this database instead of a real server.
+
+```ts
+// db.ts
+import { factory, primaryKey } from '@mswjs/data';
+import { nanoid } from '@ngneat/falso';
+
+const models = {
+  user: {
+    id: primaryKey(nanoid),
+    firstName: String,
+    lastName: String,
+    email: String,
+    role: String,
+  },
+  discussion: {
+    id: primaryKey(nanoid),
+    title: String,
+    body: String,
+    authorId: String,
+  },
+};
+
+export const db = factory(models);
+```
+
+Write to it directly in tests via `db.user.create(...)` / `db.discussion.create(...)`.
+
+### Data generators
+
+`@ngneat/falso` generates realistic fake data. Combine with the in-memory DB for seeded test scenarios.
+
+```ts
+import { randCompanyName, randUserName, randEmail, randParagraph, randUuid } from '@ngneat/falso';
+
+export const generateUser = () => ({
+  id: randUuid(),
+  firstName: randUserName(),
+  lastName: randUserName(),
+  email: randEmail(),
+});
+```
+
+Note: the data generator returns plain objects. The `db.user.create(...)` call that inserts into the database happens in the test utilities or setup, not in the generator itself.
+
+### Standalone mock server for E2E
+
+The repo includes a standalone mock server using `vite-node` and `@mswjs/http-middleware`. It runs the same MSW handlers as the test suite but as an HTTP server, so Playwright E2E tests hit a real API without standing up a backend.
 
 # Error handling
 
@@ -186,31 +350,65 @@ Track production errors with a dedicated service (Sentry or similar) rather than
 
 # Security: authentication and authorization
 
-Client-side auth improves the user experience, but it is not a substitute for server-side enforcement. Every resource still needs to be protected on the server regardless of what the client does. Treat everything below as complementary to that, not a replacement for it.
+Client-side auth improves the user experience but doesn't replace server-side enforcement. Every resource still needs to be protected on the server. What follows is how to wire up the client side; it's complementary, not a replacement.
 
 ## Authentication
 
-Verifies who the user is. The standard pattern for single-page apps is JWT: the user logs in, receives a token, and the token is sent with every subsequent authenticated request.
+Standard pattern for SPAs is JWT: the user logs in, receives a token, and the token is sent with every authenticated request.
 
-**Where to store the token matters and the tradeoffs are not optional to consider:**
+**Where to store the token matters:**
 
-- Storing the token only in application state is the most secure option against theft, but it resets on page refresh, so on its own it's not practical.
-- `localStorage` and `sessionStorage` are readable by any JavaScript running on the page. If the app has an XSS vulnerability, the token can be stolen directly. Don't store tokens here unless you've deliberately decided the tradeoff is acceptable for the app in question.
-- Cookies with the `HttpOnly` flag are the safer default. `HttpOnly` cookies aren't accessible to client-side JavaScript at all, which closes off the XSS token-theft path.
+- **Application state only.** Most secure against theft, but resets on page refresh. Not practical on its own.
+- **`localStorage` / `sessionStorage`.** Readable by any JavaScript on the page. If the app has an XSS vulnerability, the token can be stolen directly.
+- **HttpOnly cookies.** Safer default. Not accessible to client-side JavaScript, which closes the XSS token-theft path.
 
-Regardless of storage choice, sanitize all user input before rendering it. This is the other half of XSS defense, storage security alone doesn't help if unsanitized input gets rendered back into the page. See the OWASP client-side security top 10 for the fuller threat list.
+Sanitize all user input before rendering it. That's the other half of XSS defense. Storage security alone doesn't help if unsanitized input gets rendered back into the page.
 
-Treat the authenticated user object as global state, available anywhere in the app. If already using react-query, the react-query-auth library handles this pattern directly. Otherwise, react context + hooks or another state library works. The convention: the app considers a user authenticated if and only if a user object is present.
+The upstream repo uses **react-query-auth** to wire up auth. In `lib/auth.tsx`, call `configureAuth` with your API functions, then export typed hooks (see [api-layer.md](api-layer.md) for the pattern). The app considers a user authenticated if and only if a user object is present.
 
 ## Authorization
 
-Verifies what an authenticated user is allowed to do. Two models, and they're not mutually exclusive:
+Two models. You can use both in the same app.
 
-**Role-based (RBAC):** Define roles (`USER`, `ADMIN`, and so on) and grant each role a set of permissions. Simple to reason about, and it's the right default for most access decisions in an app.
+**Role-based (RBAC):** Define roles (`USER`, `ADMIN`) and grant each role a set of permissions. Simple. Right default for most access decisions.
 
-**Permission-based (PBAC):** Finer-grained than roles. Use it when access depends on something more specific than role membership, most commonly ownership: only the author of a comment can delete that comment, regardless of what role they hold. RBAC alone can't express that; PBAC checks a policy specific to the resource instance.
+**Permission-based (PBAC):** Finer-grained. Use it when access depends on something more specific than role membership, most commonly ownership: only the author of a comment can delete it. RBAC alone can't express that.
 
-In practice, gate UI and actions with a component that accepts either allowed roles (RBAC) or a policy check function (PBAC), and use whichever fits the specific permission being enforced.
+### The Authorization component pattern
+
+The upstream repo has `lib/authorization.tsx` with a reusable component. It takes either `allowedRoles` (RBAC) or a `policyCheck` function (PBAC) and renders children only when access is granted.
+
+```tsx
+// RBAC. Only admins can see this
+<Authorization allowedRoles={['ADMIN']}>
+  <DeleteUserButton />
+</Authorization>
+
+// PBAC. Only the comment author can delete
+// Evaluate the policy and pass the boolean result
+<Authorization policyCheck={POLICIES['comment:delete'](user, comment)}>
+  <DeleteCommentButton />
+</Authorization>
+```
+
+Define roles and policies in one place:
+
+```ts
+export enum ROLES {
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+
+const POLICIES = {
+  'comment:delete': (user: User, comment: Comment) => {
+    if (user.role === ROLES.ADMIN) return true;
+    if (user.role === ROLES.USER && comment.author?.id === user.id) return true;
+    return false;
+  },
+} as const;
+```
+
+The `useAuthorization` hook returns `checkAccess` and `role` so you can use them in logic too, not just in JSX.
 
 # Performance
 
@@ -232,13 +430,13 @@ Split at the route level so the initial load only fetches what's needed for the 
   const [state, setState] = useState(() => myExpensiveFn());
   ```
 
-- For state that tracks many independent elements at once, consider a store with atomic updates (Jotai) instead of one big object.
+- For state that tracks many independent elements at once, consider a store with atomic updates (Zustand, Jotai) instead of one big object.
 - React Context is fine for low-frequency data: theme, user info, small local state. For data that updates often, plain context will re-render every consumer on every change. Either use a library with built-in selectors (Zustand, Jotai) or `use-context-selector` if staying with context. And before reaching for context at all, check whether lifting state up or better component composition solves the problem without it. Context is not the default answer to prop drilling.
 - If the app updates frequently and runtime styling libraries (emotion, styled-components) show up as a bottleneck, consider a zero-runtime alternative (Tailwind, vanilla-extract, CSS modules) that generates styles at build time instead.
 
 ## Use `children` to avoid re-renders
 
-Passing JSX through the `children` prop is the cheapest optimization available. Content passed as `children` is a VDOM structure the parent doesn't own and can't re-render, so it's untouched by state changes in the parent.
+Passing JSX through `children` is the cheapest optimization. Content passed as `children` is a VDOM structure the parent doesn't own and can't re-render. State changes in the parent leave it untouched.
 
 ```javascript
 // PureComponent re-renders every time count changes
@@ -304,3 +502,45 @@ features/checkout/components/icon-button.tsx: not checkout-specific, move to sha
 Don't write paragraphs explaining why each finding matters, the reference file it points back to already explains the rule. Just say what to cut and where it goes instead.
 
 If nothing here is over-applied, say so in one line. A clean scan is a valid outcome, not a reason to invent findings.
+
+# Quality check tools
+
+These tools and companion skills enforce or extend the conventions in this skill. Use them when the task goes beyond organizing files: when you need to verify code quality, catch performance issues, or design better component APIs.
+
+## react-doctor
+
+Scans your React codebase for issues across state and effects, performance, architecture, security, and accessibility. Run it after applying this skill's conventions to catch what the agent missed.
+
+```bash
+npx react-doctor@latest
+```
+
+Works with Next.js, Vite, TanStack, React Native, Expo. Can run in CI on pull requests. 13.5k stars.
+
+Notable: react-doctor catches exactly the kinds of problems this skill teaches you to avoid: state in the wrong place, barrel files breaking tree shaking, missing error boundaries. The two tools complement each other.
+
+[https://github.com/millionco/react-doctor](https://github.com/millionco/react-doctor)
+
+## Vercel react-best-practices
+
+70 rules across 8 categories, prioritized by impact: eliminating waterfalls, bundle size, server-side performance, client-side data fetching, re-render optimization, rendering performance, JavaScript performance, and advanced patterns.
+
+Load this skill when performance is the specific concern, not just "where do I put these files" but "why is this page slow and how do I fix it."
+
+```bash
+npx skills add vercel-labs/agent-skills --skill react-best-practices
+```
+
+[https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices](https://github.com/vercel-labs/agent-skills/tree/main/skills/react-best-practices)
+
+## Vercel composition-patterns
+
+Component architecture patterns: compound components with shared context, avoiding boolean prop proliferation, lifting state into providers, and React 19 API changes (no more `forwardRef`, `use()` instead of `useContext()`).
+
+Load this skill when designing component APIs, not file organization but the contract between a component and its callers.
+
+```bash
+npx skills add vercel-labs/agent-skills --skill composition-patterns
+```
+
+[https://github.com/vercel-labs/agent-skills/tree/main/skills/composition-patterns](https://github.com/vercel-labs/agent-skills/tree/main/skills/composition-patterns)
