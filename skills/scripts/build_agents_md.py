@@ -27,6 +27,7 @@ FILE_ORDER = [
     "state-management.md",
     "testing.md",
     "error-handling.md",
+    "effects.md",
     "security.md",
     "performance.md",
     "overengineering-check.md",

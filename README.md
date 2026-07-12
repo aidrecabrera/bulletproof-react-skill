@@ -54,6 +54,22 @@ For manual install or other agents, copy `skills/` to your agent's skills direct
   Install for API design guidance.
 
 
+### Notes
+
+Humans abused useEffect so much that LLMs got trained to overuse them too.
+Every unnecessary Effect in the training data taught the model this is normal
+React. The agent is not being lazy. It is repeating what it learned from
+thousands of examples where an Effect was the wrong answer but nobody
+flagged them.
+
+GPT 5.6 Sol largely fixed this
+([source](https://x.com/thsottiaux/status/2076145711922696371)).
+But even with better models, the reference is still worth having as a reminder.
+The question is not "can I use an Effect here" but "should I use an Effect here."
+If there is no external system to synchronize with, calculate during rendering
+or handle the event directly.
+
+
 ## License
 
 MIT. See [NOTICE.md](skills/NOTICE.md).

@@ -54,6 +54,7 @@ The mistakes the agent makes most often:
 5. **Barrel files (index.ts that re-exports everything).** They break tree shaking in Vite. Import directly from the file you need.
 6. **Cross-feature imports.** Worth repeating: `features/comments` reaching into `features/discussions` is never the right call. If two features share logic, promote it to shared code.
 7. **Flagging a single `api/` file as over-engineering.** One endpoint in `features/x/api/` is how the API layer starts, not a violation. The over-engineering check targets empty `stores/`, single-use `hooks/`, and single-type `types/` folders, or truly one-off inline fetches outside a feature entirely - not a lone `api/` file already living inside a real feature folder.
+8. **Reaching for `useEffect` to transform data or handle user events.** If something can be calculated from existing props or state, calculate it during rendering. If logic runs because the user did something, put it in the event handler. Effects are for synchronizing with external systems only. See [reference/effects.md](reference/effects.md).
 
 ## These resources may help
 
@@ -74,5 +75,7 @@ Each file is short enough to load in full. Read the one relevant to the current 
 - **[reference/performance.md](reference/performance.md)**: code splitting, re-render causes, the `children` pattern, image and prefetch optimizations. Read when something is measurably slow, not preemptively.
 
 - **[reference/overengineering-check.md](reference/overengineering-check.md)**: a narrow review pass for this skill's own conventions applied where they don't earn their cost. Read when reviewing a codebase for unnecessary structure, or as a self-check after generating a feature scaffold.
+
+- **[reference/effects.md](reference/effects.md)**: when to avoid Effects and what to do instead. Covers derived state, `useMemo`, resetting state with keys, chains of computations, fetching with cleanup, and more. Read before reaching for `useEffect`.
 
 - **[reference/quality-check.md](reference/quality-check.md)**: companion tools (react-doctor, Vercel performance rules, composition patterns) that enforce or extend these conventions.
