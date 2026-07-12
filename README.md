@@ -3,6 +3,8 @@
   <img alt="bulletproof-react" src="assets/logo-light.svg" width="400" />
 </picture>
 
+[![skills.sh](https://skills.sh/b/aidrecabrera/bulletproof-react-skill)](https://skills.sh/aidrecabrera/bulletproof-react-skill)
+
 
 An agent skill for bulletproof-react conventions.
 Feature folders, API layers, state categories, testing, error handling, auth, performance.
