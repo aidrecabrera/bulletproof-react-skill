@@ -53,6 +53,7 @@ The mistakes the agent makes most often:
 4. **Putting server cache state in Zustand, Redux, or any general-purpose store.** Server data belongs in TanStack Query's cache, not in a hand-rolled store. The caching, invalidation, and refetching logic a query client gives you for free is the whole reason it exists.
 5. **Barrel files (index.ts that re-exports everything).** They break tree shaking in Vite. Import directly from the file you need.
 6. **Cross-feature imports.** Worth repeating: `features/comments` reaching into `features/discussions` is never the right call. If two features share logic, promote it to shared code.
+7. **Flagging a single `api/` file as over-engineering.** One endpoint in `features/x/api/` is how the API layer starts, not a violation. The over-engineering check targets empty `stores/`, single-use `hooks/`, and single-type `types/` folders, or truly one-off inline fetches outside a feature entirely - not a lone `api/` file already living inside a real feature folder.
 
 ## These resources may help
 

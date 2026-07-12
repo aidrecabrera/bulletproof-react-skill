@@ -11,21 +11,21 @@
     {
       "id": 2,
       "prompt": "quick q - i've got GET /api/discussions/:id and i'm currently just calling fetch() straight in the DiscussionPage component, is that fine or should this live somewhere else. we're on react-query 5",
-      "expected_output": "Recommends pulling the fetch call out into a request declaration file in the feature's api/ folder (e.g. features/discussions/api/get-discussion.ts), with types, a fetcher, and a react-query hook, rather than leaving it inline in the component.",
+      "expected_output": "Acknowledges that if this is genuinely a single, non-reused call, inline is an acceptable choice - not just 'move it to api/' unconditionally. Also recommends the v5 queryOptions pattern for the case where it's worth extracting: types, a fetcher, and queryOptions in the feature's api/ folder.",
       "should_trigger": true,
       "files": []
     },
     {
       "id": 3,
       "prompt": "can you look at this and tell me why it feels messy\n\nconst [state, setState] = useState({\n  user: null,\n  discussions: [],\n  isModalOpen: false,\n  formValues: { title: '', body: '' },\n  loading: false\n})\n\neverything updates through one setState call and i think that's why my modal re-renders the whole discussion list every time",
-      "expected_output": "Identifies that this mixes server cache state (discussions), form state (formValues), and application state (isModalOpen) into one object, which explains the unrelated re-renders. Recommends react-query for discussions, a form library for formValues, and moving isModalOpen to local or minimal global state instead of one shared object.",
+      "expected_output": "Identifies that this mixes server cache state (discussions), form state (formValues), and application state (isModalOpen) into one object, naming each category specifically rather than saying 'multiple categories' generically. Recommends react-query for discussions, and explicitly recommends eliminating the manual loading flag in favor of react-query's isPending/isLoading rather than just remapping loading to a different tool and keeping it as a separate field. Recommends a form library for formValues with an actual code example (schema and resolver setup, or equivalent), not just naming the library. Explains the re-render fix concretely: separating isModalOpen into its own useState, and isolating the discussion list from modal-triggered re-renders through component composition (e.g. passing it as children or a separately-subscribed component), not just 'use separate useState calls.'",
       "should_trigger": true,
       "files": []
     },
     {
       "id": 4,
       "prompt": "for our SPA login flow, is it bad practice to just localStorage.setItem the jwt after the user logs in? our backend team says cookies are 'more work' so trying to figure out if its worth pushing for",
-      "expected_output": "Explains the XSS risk of localStorage for token storage and recommends HttpOnly cookies as the safer default, while being clear that sanitizing user input is a separate necessary step either way, not a substitute for storage choice.",
+      "expected_output": "Explains the XSS risk of localStorage for token storage and recommends HttpOnly cookies as the safer default. Acknowledges the real backend cost of the cookie approach - CSRF protection and SameSite configuration - rather than dismissing 'more work' as unfounded, and frames it as a one-time setup cost versus an unbounded token-leak risk. Does not claim client-side storage choice replaces server-side enforcement.",
       "should_trigger": true,
       "files": []
     },

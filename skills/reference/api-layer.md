@@ -10,6 +10,8 @@ Don't construct a new client per call. One instance, configured once.
 
 Each endpoint gets its own file in the feature's `api/` folder. This makes every endpoint discoverable and keeps typing straightforward.
 
+Before recommending this pattern, check scale: a single one-off call that won't be reused is fine to leave inline (see [overengineering-check.md](overengineering-check.md)). This pattern pays off once a second consumer, a second endpoint, or a real feature folder exists.
+
 Each file has three parts:
 
 1. **Types and validation schemas** for the request and response
