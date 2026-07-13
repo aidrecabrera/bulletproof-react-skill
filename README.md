@@ -63,7 +63,7 @@ React. The agent is not being lazy. It is repeating what it learned from
 thousands of examples where an Effect was the wrong answer but nobody
 flagged them.
 
-GPT 5.6 Sol largely fixed this
+GPT-5.6 no longer exhibits that behavior.
 ([source](https://x.com/thsottiaux/status/2076145711922696371)).
 But even with better models, the reference is still worth having as a reminder.
 The question is not "can I use an Effect here" but "should I use an Effect here."
